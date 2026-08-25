@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import billing
 from app.data import get_invoice
+from app.matching import match_purchase_order
 
 app = FastAPI(title="healer-sandbox-be")
 
@@ -32,10 +33,11 @@ def health() -> dict:
 
 @app.get("/api/invoices/{invoice_id}")
 def read_invoice(invoice_id: int) -> dict:
-    """Returns a fully-computed invoice: subtotal, tax, total, balance due.
+    """Returns a fully-computed invoice: subtotal, tax, total, balance due,
+    and its matched purchase order.
 
-    Two intentional bugs live in this response, both P1/P0-shaped
-    cross-repo defects for healer-agent's own testing (see the frontend's
+    Three intentional bugs live in this response, each a different
+    severity/shape for healer-agent's own testing (see the frontend's
     e2e/invoice.spec.ts for which severity each maps to):
 
     - balance_due (via billing.compute_balance_due) drops tax entirely.
@@ -44,6 +46,8 @@ def read_invoice(invoice_id: int) -> dict:
       invoice #1 and never generalized. Invoice #1 happens to BE "Acme
       Supplies" so this bug is invisible there; it only shows up for any
       other invoice.
+    - po_match (via matching.match_purchase_order) pairs invoices to POs
+      by list position instead of by vendor/PO number.
     """
     record = get_invoice(invoice_id)
     if record is None:
@@ -53,6 +57,7 @@ def read_invoice(invoice_id: int) -> dict:
     tax = billing.compute_tax(subtotal, record["tax_rate"])
     total = billing.compute_total(subtotal, tax)
     balance_due = billing.compute_balance_due(subtotal, tax, record["amount_paid"])
+    po_match = match_purchase_order(record["id"], record["vendor"])
 
     return {
         "id": record["id"],
@@ -63,4 +68,5 @@ def read_invoice(invoice_id: int) -> dict:
         "total": total,
         "amount_paid": record["amount_paid"],
         "balance_due": balance_due,
+        "po_match": po_match,
     }
