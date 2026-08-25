@@ -34,9 +34,16 @@ def health() -> dict:
 def read_invoice(invoice_id: int) -> dict:
     """Returns a fully-computed invoice: subtotal, tax, total, balance due.
 
-    The balance_due field is computed by billing.compute_balance_due, which
-    carries the intentional tax-dropping bug — so this endpoint returns a
-    200 with numerically wrong data, not an error.
+    Two intentional bugs live in this response, both P1/P0-shaped
+    cross-repo defects for healer-agent's own testing (see the frontend's
+    e2e/invoice.spec.ts for which severity each maps to):
+
+    - balance_due (via billing.compute_balance_due) drops tax entirely.
+    - vendor is hardcoded below instead of read from the record — a
+      copy-paste bug from when this endpoint was first written against
+      invoice #1 and never generalized. Invoice #1 happens to BE "Acme
+      Supplies" so this bug is invisible there; it only shows up for any
+      other invoice.
     """
     record = get_invoice(invoice_id)
     if record is None:
@@ -49,7 +56,7 @@ def read_invoice(invoice_id: int) -> dict:
 
     return {
         "id": record["id"],
-        "vendor": record["vendor"],
+        "vendor": "Acme Supplies",  # BUG: should be record["vendor"]
         "line_items": record["line_items"],
         "subtotal": subtotal,
         "tax": tax,

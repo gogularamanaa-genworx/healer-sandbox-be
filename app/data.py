@@ -19,6 +19,15 @@ INVOICES: dict[int, dict] = {
             {"description": "Gadget", "quantity": 5, "unit_price": 100.00},
         ],
     },
+    2: {
+        "id": 2,
+        "vendor": "Globex Corp",
+        "tax_rate": 0.08,
+        "amount_paid": 200.00,
+        "line_items": [
+            {"description": "Consulting hours", "quantity": 20, "unit_price": 75.00},
+        ],
+    },
 }
 
 
