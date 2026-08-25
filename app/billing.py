@@ -7,6 +7,8 @@ compute_balance_due.
 
 from __future__ import annotations
 
+from app.currency import to_cents
+
 
 def compute_subtotal(line_items: list[dict]) -> float:
     """Sum of quantity * unit_price across all line items."""
@@ -35,3 +37,10 @@ def compute_balance_due(subtotal: float, tax: float, amount_paid: float) -> floa
     this returns $600 — the customer is under-billed by exactly the tax.
     """
     return round(subtotal - amount_paid, 2)
+
+
+def compute_credit_note_cents(credit_amount: float) -> int:
+    """A credit note is a negative billing adjustment (e.g. a partial
+    refund issued against an invoice) expressed in integer cents, like any
+    other money figure that flows through to_cents()."""
+    return to_cents(credit_amount)

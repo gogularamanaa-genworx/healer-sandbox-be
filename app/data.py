@@ -60,6 +60,20 @@ INVOICES: dict[int, dict] = {
             {"description": "Cloud hosting", "quantity": 8, "unit_price": 50.00},
         ],
     },
+    # Not part of the P0 systemic scenario above — this one exists for
+    # reconciliation.py's rounding-mismatch test. Its subtotal * tax_rate
+    # (162.50 * 0.05 = 8.125) lands exactly on a rounding boundary where
+    # Python's round() (banker's rounding) and standard round-half-up
+    # diverge; see tests/test_reconciliation.py.
+    6: {
+        "id": 6,
+        "vendor": "Stark Industries",
+        "tax_rate": 0.05,
+        "amount_paid": 100.00,
+        "line_items": [
+            {"description": "Onsite training (13 sessions)", "quantity": 13, "unit_price": 12.50},
+        ],
+    },
 }
 
 

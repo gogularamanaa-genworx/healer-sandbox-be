@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import billing
 from app.data import get_invoice
+from app.ledger import finalize_invoice, ledger_entries_for
 from app.matching import match_purchase_order
 
 app = FastAPI(title="healer-sandbox-be")
@@ -70,3 +71,26 @@ def read_invoice(invoice_id: int) -> dict:
         "balance_due": balance_due,
         "po_match": po_match,
     }
+
+
+@app.post("/api/invoices/{invoice_id}/finalize")
+def finalize_invoice_endpoint(invoice_id: int) -> dict:
+    """Finalizes (bills) an invoice, recording it in the ledger.
+
+    BUG (P0 — real-world pattern: non-idempotent retry): a client that
+    times out waiting for this response has no way to know whether the
+    request already succeeded server-side, so retrying is the only safe
+    client behavior. This endpoint has no idempotency check, so a retried
+    call double-books the same invoice in ledger.LEDGER_ENTRIES instead of
+    treating the repeat as a no-op.
+    """
+    record = get_invoice(invoice_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"Invoice {invoice_id} not found")
+
+    subtotal = billing.compute_subtotal(record["line_items"])
+    tax = billing.compute_tax(subtotal, record["tax_rate"])
+    total = billing.compute_total(subtotal, tax)
+    finalize_invoice(record["id"], total)
+
+    return {"invoice_id": record["id"], "ledger_count": len(ledger_entries_for(record["id"]))}
