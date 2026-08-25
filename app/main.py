@@ -10,11 +10,13 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from app import billing
 from app.data import get_invoice
 from app.ledger import finalize_invoice, ledger_entries_for
 from app.matching import match_purchase_order
+from app.reconciliation import recompute_refund_adjustment_cents
 
 app = FastAPI(title="healer-sandbox-be")
 
@@ -24,6 +26,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class AdjustmentRequest(BaseModel):
+    amount: float
 
 
 @app.get("/api/health")
@@ -94,3 +100,35 @@ def finalize_invoice_endpoint(invoice_id: int) -> dict:
     finalize_invoice(record["id"], total)
 
     return {"invoice_id": record["id"], "ledger_count": len(ledger_entries_for(record["id"]))}
+
+
+@app.post("/api/invoices/{invoice_id}/credit-note")
+def issue_credit_note(invoice_id: int, body: AdjustmentRequest) -> dict:
+    """Issues a credit note (a negative billing adjustment) against an
+    invoice — e.g. a partial refund for a damaged shipment.
+
+    Deliberately no try/except here: an unhandled exception is what a real
+    production API does for an unexpected internal error — it returns an
+    opaque 500 with no internal detail leaked to the client (see
+    currency.compute_credit_note_cents). A caller (or an E2E test) sees
+    only "this failed," never why.
+    """
+    record = get_invoice(invoice_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"Invoice {invoice_id} not found")
+
+    credit_cents = billing.compute_credit_note_cents(-abs(body.amount))
+    return {"invoice_id": invoice_id, "credit_cents": credit_cents}
+
+
+@app.post("/api/invoices/{invoice_id}/refund-adjustment")
+def issue_refund_adjustment(invoice_id: int, body: AdjustmentRequest) -> dict:
+    """Records a refund adjustment against an invoice on the reconciliation
+    side — same opaque-500-on-internal-error shape as issue_credit_note
+    above, and the same underlying shared dependency (currency.to_cents)."""
+    record = get_invoice(invoice_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"Invoice {invoice_id} not found")
+
+    refund_cents = recompute_refund_adjustment_cents(-abs(body.amount))
+    return {"invoice_id": invoice_id, "refund_cents": refund_cents}

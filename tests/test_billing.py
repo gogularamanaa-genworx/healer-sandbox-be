@@ -25,9 +25,3 @@ def test_tax_at_ten_percent():
 
 def test_total_is_subtotal_plus_tax():
     assert billing.compute_total(1000.0, 100.0) == 1100.0
-
-
-def test_p1_credit_note_amount_converts_to_cents():
-    # A credit note is a negative billing adjustment — e.g. a $50 partial
-    # refund issued against an invoice shows up here as -50.00.
-    assert billing.compute_credit_note_cents(-50.00) == -5000

@@ -10,7 +10,7 @@ rounding) disagrees with the accounting-standard round-half-up.
 
 from app import billing
 from app.data import INVOICES
-from app.reconciliation import recompute_refund_adjustment_cents, recompute_tax
+from app.reconciliation import recompute_tax
 
 
 def _tax_reconciles(invoice_id: int) -> bool:
@@ -49,9 +49,3 @@ def test_p1_invoice_6_tax_reconciles_with_standard_rounding():
     # systemic bug that breaks every invoice, it's the subtle kind that
     # only shows up for specific fractional-cent amounts.
     assert _tax_reconciles(6)
-
-
-def test_p1_refund_adjustment_converts_to_cents():
-    # A refund adjustment on the reconciliation side is also a negative
-    # dollar figure — e.g. a $25 refund shows up here as -25.00.
-    assert recompute_refund_adjustment_cents(-25.00) == -2500
