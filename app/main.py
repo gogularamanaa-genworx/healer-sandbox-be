@@ -13,7 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app import billing
-from app.data import get_invoice
+from app.data import INVOICES, get_invoice
+from app.export import bulk_export_count, export_invoice
 from app.ledger import finalize_invoice, ledger_entries_for
 from app.matching import match_purchase_order
 from app.reconciliation import recompute_refund_adjustment_cents
@@ -132,3 +133,19 @@ def issue_refund_adjustment(invoice_id: int, body: AdjustmentRequest) -> dict:
 
     refund_cents = recompute_refund_adjustment_cents(-abs(body.amount))
     return {"invoice_id": invoice_id, "refund_cents": refund_cents}
+
+
+@app.get("/api/admin/invoices/export")
+def admin_export_all_invoices() -> dict:
+    """Bulk-exports every invoice in the system to the external accounting
+    provider. An admin-only maintenance action, triggered from the internal
+    ops dashboard."""
+    invoice_ids = list(INVOICES.keys())
+    queued = bulk_export_count(invoice_ids)
+    return {"queued": queued, "total": len(invoice_ids)}
+
+
+@app.post("/api/admin/invoices/{invoice_id}/export")
+def admin_export_one_invoice(invoice_id: int) -> dict:
+    """Exports a single invoice to the external accounting provider."""
+    return export_invoice(invoice_id)

@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+requests==2.31.0
 pytest
 pytest-json-report
 httpx
